@@ -1,0 +1,25 @@
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+var dataset = ee.ImageCollection('WorldPop/GP/100m/pop')
+                  .filter(ee.Filter.date('2018-01-01', '2018-12-31'));
+var populationCount = dataset.select('population')
+                       .mean()
+                       .clip(roi)
+                      .reproject('EPSG:32649', null, 100);
+var populationCountVis = {
+  min: 0.0,
+  max: 200.0,
+  palette: ['060606', '337663', '337663', 'ffffff'],
+};
+
+Map.addLayer(populationCount, populationCountVis, 'Population Count');
+//
+Export.image.toDrive({
+  image: populationCount,
+  description: "Population Count",
+  fileNamePrefix: "dwqPOP_count",
+  scale: 100,
+  region: roi,
+  maxPixels:1e13,
+  
+});
+print(populationCount);

@@ -1,0 +1,41 @@
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+//add the datasets
+var dataset = ee.ImageCollection('UCSB-CHG/CHIRPS/PENTAD');
+//MAP SHOW
+var PRE1 = dataset.filterDate("2018-01-01", "2018-12-31")
+             .select(["precipitation"])
+             .mean()
+             .clip(roi)
+             .reproject('EPSG:32649', null, 500);
+var precipitationVis = {
+  min: 0.0,
+  max: 112.0,
+  palette: ['001137', '0aab1e', 'e7eb05', 'ff4a2d', 'e90000'],
+};
+Map.addLayer(PRE1, precipitationVis, 'Precipitation');
+//
+Export.image.toDrive({
+  image: PRE1,
+  description: "Precipitation",
+  fileNamePrefix: "dwq_pre",
+  scale: 500,
+  region: roi,
+  maxPixels:1e13,});
+  
+ print(PRE1);
+ 
+//CHART SHOW
+var preList = ee.ImageCollection('UCSB-CHG/CHIRPS/PENTAD')
+                .filter(ee.Filter.date('2000-01-01', '2018-12-31'));
+var PRE = preList.select("precipitation")
+                .filterBounds(roi);
+//          
+var chart1 = ui.Chart.image.series({
+  imageCollection: PRE,
+  region: roi,
+  reducer: ee.Reducer.mean(),
+  scale: 500
+}).setOptions({title: 'PRE IMAGE SERIES',
+               vAxis: {title: 'PRE_mean value' },
+});
+print(chart1);

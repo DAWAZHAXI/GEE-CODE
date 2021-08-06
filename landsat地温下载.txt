@@ -1,0 +1,42 @@
+var maskClouds = function(image) {
+  var score = ee.Algorithms.Landsat.simpleCloudScore(image).select('cloud');
+  var mask = score.lt(100);
+  return image.updateMask(mask);
+};
+//
+var temps2013 = l8.filterBounds(SZ)
+                  .filterDate('2017-07-01', '2017-07-31')
+                  .select('B10');
+
+// Convert temperature to Celsius.
+temps2013 = temps2013.map(function(image) {
+  return image.addBands(image.subtract(273.15).select([0], ['Temp']));
+});
+//
+var TEM = temps2013
+             .select('Temp')
+          
+             .mean()
+             .clip(SZ)
+             .reproject('EPSG:4326', null, 1000);
+var TEMVis = {
+  min: 0.0,
+  max: 40.0,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};
+Map.addLayer(TEM, TEMVis, 'Temp');
+print(temps2013);
+//
+Export.image.toDrive({
+  image: TEM,
+  description: "Temp20171030",
+  fileNamePrefix: "LST_20171030",
+  scale: 1000,
+  region: SZ,
+  maxPixels:1e13,
+  
+});

@@ -1,0 +1,44 @@
+
+
+// Load a 2012 nightlights image, clipped to the Japan border.
+var nl2012 = ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG')
+  .filterDate('2015-01-01', '2015-01-31')
+  var nl2012 = nl2012.filterDate("2015-01-01", "2015-12-31")
+             .select(["avg_rad"])
+             .mean()
+             .clip(roi)
+             .reproject('EPSG:32647', null, 500);
+
+
+// Define arbitrary thresholds on the 6-bit nightlights image.
+var zones = nl2012.gt(30).add(nl2012.gt(55)).add(nl2012.gt(62));
+zones = zones.updateMask(zones.neq(0));
+
+// Convert the zones of the thresholded nightlights to vectors.
+var vectors = zones.addBands(nl2012).reduceToVectors({
+  geometry: roi,
+  crs: nl2012.projection(),
+  scale: 500,
+  geometryType: 'polygon',
+  eightConnected: false,
+  labelProperty: 'zone',
+  reducer: ee.Reducer.mean()
+});
+
+// Display the thresholds.
+Map.centerObject(roi, 9);
+Map.addLayer(zones, {min: 1, max: 3, palette: ['0000FF', '00FF00', 'FF0000']}, 'raster');
+
+// Make a display image for the vectors, add it to the map.
+var display = ee.Image(0).updateMask(0).paint(vectors, '000000', 3);
+Map.addLayer(display, {palette: '000000'}, 'vectors');
+//
+Export.image.toDrive({
+  image: zones,
+  description: "zones",
+  fileNamePrefix: "dadawd",
+  scale: 500,
+  region: roi,
+  
+});
+print(zones);

@@ -1,0 +1,29 @@
+//yong用modis  在昆明
+var qinghai=ee.FeatureCollection('ft:1xQepkLBDiZ09t4sWxwctxvXEohZfxMmaFdRrjxLy')
+var mod = ee.ImageCollection("MODIS/006/MOD13A1")
+var roi = ee.Geometry.Polygon([[[102.85536411127305,24.574909457307566],
+                             [103.08607700189805,25.16547938924343],
+                             [102.5175345214293,25.197791622154284],
+                            [102.33900668939805,24.634842115498515]]]);
+var img = ee.Image(mod.filterBounds(roi)
+                       .filterDate("2013-01-01", "2013-12-24")
+                       .first());
+var ndvi = mod.select('NDVI');
+
+
+//上面展示了图像，分析的时候还需要查看我们所筛选的影像NDVI值
+var ndvi_1 = mod.filterDate("2013-01-01", "2013-12-31");
+
+
+// To Drive
+//导出文件到Drive，名称为ndvi_1, 分辨率500    区域为roi
+Export.image.toDrive({
+  image: ndvi_1.select(['NDVI']),
+  description: "ndvi_1",
+  fileNamePrefix: "kunming2013",
+  scale: 500,
+  region: roi,
+});
+
+print(ndvi_1);
+

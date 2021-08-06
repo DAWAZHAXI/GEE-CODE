@@ -1,0 +1,28 @@
+var maskClouds = function(image) {
+  var score = ee.Algorithms.Landsat.simpleCloudScore(image).select('cloud');
+  var mask = score.lt(100);
+  return image.updateMask(mask);
+};
+
+var ndvi = function(image) {
+  return image
+    .addBands(image.normalizedDifference(['B5', 'B4'])
+                   .rename('NDVI'))
+    .float();
+};
+
+
+var ndviList = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA')
+                .filterDate('2013-01-01','2013-12-31')
+                .filterBounds(roi)
+                .map(maskClouds)
+                .map(ndvi)
+                .select("NDVI");
+
+var chart1 = ui.Chart.image.series({
+  imageCollection: ndviList,
+  region: roi,
+  reducer: ee.Reducer.mean(),
+  scale: 500
+}).setOptions({title: 'NDVI IMAGE SERIES'});
+print(chart1);

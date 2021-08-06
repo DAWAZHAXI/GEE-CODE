@@ -1,0 +1,30 @@
+var SZ=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+var dataset = ee.ImageCollection('IDAHO_EPSCOR/TERRACLIMATE')
+                  .filter(ee.Filter.date('2018-01-01', '2018-12-31'));
+var evi = dataset.select('tmmx')
+             .mean()
+             .clip(SZ)
+             .reproject('EPSG:32649', null, 500);
+
+var eviVis = {
+  min: -300,
+  max: 300,
+  palette: [
+     '1a3678', '2955bc', '5699ff', '8dbae9', 'acd1ff', 'caebff', 'e5f9ff',
+    'fdffb4', 'ffe6a2', 'ffc969', 'ffa12d', 'ff7c1f', 'ca531a', 'ff0000',
+    'ab0000'
+  ],
+};
+
+Map.addLayer(evi, eviVis, 'tmmx');
+//
+Export.image.toDrive({
+  image: evi,
+  description: "tmmx",
+  fileNamePrefix: "dwq_tmmx",
+  scale: 500,
+  region: SZ,
+  maxPixels:1e13,
+  
+});
+ print(evi);

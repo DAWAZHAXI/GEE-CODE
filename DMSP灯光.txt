@@ -1,0 +1,25 @@
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+var mod = ee.ImageCollection('NOAA/DMSP-OLS/CALIBRATED_LIGHTS_V4')
+                  .filter(ee.Filter.date('2000-01-01', '2000-12-31'));
+var nighttimeLights = mod.select('avg_vis');
+var nighttimeLightsVis = {
+  min: 0.0,
+  max: 60.0,
+};
+
+var img =nighttimeLights.mosaic().clip(roi).toInt()
+          .reproject('EPSG:32649', null, 500);
+Map.addLayer(img, nighttimeLightsVis, "Nighttime Lights");
+
+//
+Export.image.toDrive({
+  image: img,
+  description: "nl",
+  fileNamePrefix: "dwq",
+  scale: 500,
+  region: roi,
+  
+});
+print(img);
+
+

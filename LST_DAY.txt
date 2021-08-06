@@ -1,0 +1,28 @@
+//加载我最亲爱的大湾区边界 
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+
+
+//筛选
+var LST = mod.filterDate("2018-01-01", "2018-12-31")
+             .select(["LST_Day_1km", "LST_Night_1km"])
+             .mean()
+             .clip(roi)
+             .reproject('EPSG:32647', null, 1000);
+ print(LST);              
+var LST_Day_1km = LST.select("LST_Day_1km");
+var LST_Night_1km = LST.select("LST_Night_1km");
+Map.addLayer(LST_Day_1km, {}, "LST_Day_1km");
+Map.addLayer(LST_Night_1km, {}, "LST_Night_1km");
+
+// To Drive
+//导出文件到Drive，名称为LST_1, 分辨率500    区域为roi
+
+Export.image.toDrive({
+  image: LST_Day_1km,
+  description: "LST_Day_1km",
+  fileNamePrefix: "qingmai_LST18",
+  scale: 1000,
+  region: roi,
+  maxPixels:1e13,
+  
+});

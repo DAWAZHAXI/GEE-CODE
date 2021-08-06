@@ -1,0 +1,14 @@
+var dataset = ee.ImageCollection('JRC/GSW1_0/YearlyHistory')
+                  .filter(ee.Filter.date('2015-01-01', '2015-12-31'));
+var waterClass = dataset.select('waterClass');
+var waterClassVis = {
+  min: 0.0,
+  max: 3.0,
+  palette: ['cccccc', 'ffffff', '99d9ea', '0000ff'],
+};
+Map.setCenter(59.414, 45.182, 7);
+var image = waterClass.mosaic();
+Map.addLayer(image, waterClassVis, 'Water Class');
+image = image.unmask(4);
+var nowater = image.mask(image.eq(4));
+Map.addLayer(nowater, {palette:"red"}, "nowater");

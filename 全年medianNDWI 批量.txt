@@ -1,0 +1,175 @@
+var shenzhen=ee.FeatureCollection('ft:1cn-YqAUTafwB24E_TrYuU5c2cg7uCO6ql19-76A9');
+
+var maskClouds2 = function(image) {
+  var score = ee.Algorithms.Landsat.simpleCloudScore(image).select('cloud');
+  var mask = score.lt(5);
+  return image.updateMask(mask);
+};
+
+function maskClouds(image) {
+  var qa = image.select('BQA')
+  // Make a mask to exclude cloudy pixels.//根据数据介绍，选择相应的云位置作为mask0
+      // cloud
+ var mask = qa.bitwiseAnd(1<<4).eq(0).and(
+  qa.bitwiseAnd(ee.Number(2).pow(12).int()).eq(0).and(  // cirrus//原始数据位十进制，转换为二进制之后，选择第12位的值，看是否等于0，以及13位的值是否等于0
+             qa.bitwiseAnd(ee.Number(2).pow(13).int()).eq(0)).or(  // cirrus
+             qa.bitwiseAnd(ee.Number(2).pow(5).int()).eq(0)).and( // cloud
+             qa.bitwiseAnd(ee.Number(2).pow(6).int()).eq(0)).or(     // cloud
+             qa.bitwiseAnd(ee.Number(2).pow(7).int()).eq(0)).and( // cloud  shadow
+             qa.bitwiseAnd(ee.Number(2).pow(8).int()).eq(0)))      // cloud
+                         
+  return image.updateMask(mask).copyProperties(image, ["system:time_start"])
+}
+
+
+
+//计算landsat5\7的MNDWI
+function addMNDWI(image) {
+ var swir1 = image.select("B5");
+ var green = image.select("B2");
+ var MNDWI = image.expression(
+   "(B2 - B5)/(B2 + B5)",
+   {
+     "B5": swir1,
+     "B2": green
+   }
+ );
+ return image.addBands(MNDWI.rename('MNDWI')).float();
+}
+
+//计算landsat8的NDVI
+
+function addMNDWI2(image) {
+ var swir1 = image.select("B6");
+ var green = image.select("B3");
+ var MNDWI = image.expression(
+   "(B3 - B6)/(B3 + B6)",
+   {
+     "B6": swir1,
+     "B3": green
+   }
+ );
+ 
+ return image.addBands(MNDWI.rename('MNDWI')).float();
+}
+var L5T2=L5T2
+     
+     .filterBounds(shenzhen)
+     .filterMetadata('WRS_PATH','less_than',123)
+     .map(maskClouds)
+     .map(maskClouds2);
+var L7T2=L7T2
+     
+     .filterBounds(shenzhen)
+     .filterMetadata('WRS_PATH','less_than',123)
+     .map(maskClouds)
+     .map(maskClouds2);
+var L8T2=L8T2
+     .filterBounds(shenzhen)
+     .filterMetadata('WRS_PATH','less_than',123)
+     .map(maskClouds)
+     .map(maskClouds2);
+var L5=ee.ImageCollection((L5T1.merge(L5T2)));
+var L7=ee.ImageCollection((L7T1.merge(L7T2)));
+var L8=ee.ImageCollection((L8T1.merge(L8T2)));
+//.filterDate('2002-04-20', '2002-12-20')
+//定义初值
+var a=1986;
+var b=1987;
+var n=25;
+var maxMNDWI=L5
+        .filterDate(a+'-01-01', b+'-01-01')
+        //.filterBounds(shenzhen)
+        .map(maskClouds)
+        .map(addMNDWI)
+        .select('MNDWI')
+        .median()
+        .clip(shenzhen)
+        .reproject('EPSG:32649', null, 30);
+
+ Export.image.toDrive({
+   image:maxMNDWI.toFloat(),
+    description:'1986',
+    scale:30,});
+    Map.addLayer(maxMNDWI,{},'111');
+//求landsat5每年的MAXMNDWI(1986-2011)
+print(maxMNDWI);
+ for (var i=0; i<n; i++)
+{
+a=a+1;
+b=b+1;
+var or_l5=L5
+        .filterDate(a+'-01-01', b+'-01-01')
+        .filterBounds(shenzhen)
+        .map(maskClouds)
+        .map(addMNDWI)
+        .select('MNDWI')
+        .median()
+        .clip(shenzhen)
+        .reproject('EPSG:32649', null, 30);
+        
+Export.image.toDrive({
+   image:or_l5.toFloat(),
+    description:'1987',
+    scale:30,});
+var maxMNDWI= maxMNDWI.addBands(or_l5);
+}
+
+//求landsat7每年的MAXMNDWI(2012)
+n=1
+ for (var i=0; i<n; i++)
+{
+a=a+1;
+b=b+1;
+var or_l7=L7
+        .filterDate(a+'-01-01', b+'-01-01')
+        .filterBounds(shenzhen)
+        .map(maskClouds)
+        .map(addMNDWI)
+        .select('MNDWI')
+        .median()
+        .clip(shenzhen)
+        .reproject('EPSG:32649', null, 30);
+ Export.image.toDrive({
+   image:or_l7.toFloat(),
+    description:'2012',
+    scale:30,});
+var maxMNDWI= maxMNDWI.addBands(or_l7);
+  
+}
+
+
+//求landsat8每年的MAXMNDWI(2013-2018)
+n=6
+ for (var i=0; i<n; i++)
+{
+a=a+1;
+b=b+1;
+var or_l8=L8
+        .filterDate(a+'-01-01', b+'-01-01')
+        .filterBounds(shenzhen)
+        .map(maskClouds)
+        .map(addMNDWI2)
+        .select('MNDWI')
+        .median()
+        .clip(shenzhen)
+        .reproject('EPSG:32649', null, 30);
+Export.image.toDrive({
+   image:or_l8.toFloat(),
+    description:'2013',
+    scale:30,
+    maxPixels:1e13,
+});
+var maxMNDWI= maxMNDWI.addBands(or_l8);
+}
+
+//print(maxNDVI);
+print(i,a);
+//get pixel value
+//maxNDVI=ee.ImageCollection.fromImages(maxNDVI);
+
+//var y = maxNDVI.getRegion(point, 250).slice(1) // remove header
+     // .map(function(item) { return ee.Number(ee.List(item).get(-1)).divide(1e4) })
+
+
+//代码说明：以增加波段的形式构造时序image，并按照wgs84-49N输出1

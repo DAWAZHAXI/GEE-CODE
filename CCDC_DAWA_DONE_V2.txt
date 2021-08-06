@@ -1,0 +1,50 @@
+var utils = require('projects/GLANCE:ccdcUtilities/api');
+//
+var params = require('projects/GLANCE:Tutorial/params.js');
+
+// 
+var filteredLandsat = utils.Inputs.getLandsat()
+    .filterBounds(roi)
+    .filterDate(params.ChangeDetection.start, params.ChangeDetection.end);
+
+print(filteredLandsat.size());
+//
+
+
+var changeParams = {
+    collection: filteredLandsat,
+    breakpointBands: params.ChangeDetection.breakpointBands,
+    tmaskBands: params.ChangeDetection.tmaskBands,
+    minObservations: params.ChangeDetection.minObservations,
+    chiSquareProbability: params.ChangeDetection.chiSquareProbability,
+    minNumOfYearsScaler: params.ChangeDetection.minNumOfYearsScaler,
+    dateFormat: params.ChangeDetection.dateFormat,
+    lambda: params.ChangeDetection.lambda,
+    maxIterations: params.ChangeDetection.maxIterations
+  };
+
+var results = ee.Algorithms.TemporalSegmentation.Ccdc(changeParams);
+print(results);
+//
+
+var CCDC =results.clip(roi).select('tBreak')
+            .reproject('EPSG:4326', null, 30)
+                 .arraySlice(0, 0, 1)
+                 .arrayFlatten([["CCDC"]]);
+           
+print(CCDC, 'CCDC'); 
+Map.addLayer(CCDC, {}, 'CCDC');
+//
+Map.addLayer(ee.Image().paint(roi, 1, 2), null, 'roi');
+//
+
+//
+Export.image.toDrive({
+  image: CCDC,
+  description: "tBreak",
+  scale: 30,
+  region: roi,
+  maxPixels:1e13,
+  
+});
+print(CCDC);

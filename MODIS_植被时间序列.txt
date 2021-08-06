@@ -1,0 +1,51 @@
+var northwest = 
+    ee.Geometry.Polygon(
+        [[[116.1134535754385, 40.18621292916931],
+          [116.1134535754385, 40.127436350381466],
+          [116.17662496215725, 40.127436350381466],
+          [116.17662496215725, 40.18621292916931]]], null, false),
+    center = 
+    ee.Geometry.Polygon(
+        [[[116.3441664660635, 39.89814325577099],
+          [116.3441664660635, 39.851770517596385],
+          [116.40184468871975, 39.851770517596385],
+          [116.40184468871975, 39.89814325577099]]], null, false),
+    southeast = 
+    ee.Geometry.Polygon(
+        [[[116.525440880126, 39.77582023827742],
+          [116.525440880126, 39.71880246541583],
+          [116.5858656848135, 39.71880246541583],
+          [116.5858656848135, 39.77582023827742]]], null, false);
+
+var roi_collection=ee.FeatureCollection([ee.Feature(northwest,{'label':'northwest'}),
+                                     ee.Feature(center,{'label':'center'}),
+                                      ee.Feature(southeast,{'label':'southeast'})]);
+
+var year_list=ee.List.sequence(2000,2019);
+ 
+year_list=year_list.map(function(num){
+  var time=ee.Date.fromYMD(num, 1, 1)
+  var year_image=ee.ImageCollection('MODIS/006/MOD13A1')
+                  .filterDate(time,ee.Date(time).advance(1,'year'))
+                  .max();
+  var year_ndvi=year_image.select('NDVI');
+  year_ndvi=year_ndvi.set({'system:time_start':ee.Date.fromYMD(num,1,1)})
+  return  year_ndvi;                 
+}
+  )
+
+var img_collection=ee.ImageCollection.fromImages(year_list);
+
+var ndviTimeSeries = ui.Chart.image.seriesByRegion(
+  img_collection, roi_collection, ee.Reducer.mean(), 'NDVI',500,'system:time_start','label')
+          .setOptions({
+          vAxis: {title: 'NDVI*10000'},
+          lineWidth: 1,
+          pointSize: 4,
+          series: {
+            0: {color: 'FF0000'}, 
+            1: {color: '00FF00'}, 
+            2: {color: '0000FF'} 
+}});
+
+print(ndviTimeSeries)

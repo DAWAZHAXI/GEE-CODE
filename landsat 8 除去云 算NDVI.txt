@@ -1,0 +1,35 @@
+var qinghai=ee.FeatureCollection('ft:1EHzilxTupcAVzek8MRTcOMiZewB0FXpzL_xfW2yy');
+var maskClouds = function(image) {
+  var score = ee.Algorithms.Landsat.simpleCloudScore(image).select('cloud');
+  var mask = score.lt(100);
+  return image.updateMask(mask);
+};
+
+
+
+//计算landsat8的NDVI
+var addNDVI2 = function(image) {
+  return image
+    .addBands(image.normalizedDifference(['B5', 'B4'])
+    .rename('NDVI'))
+    .float();
+};
+//.filterDate('2002-04-20', '2002-12-20')
+var maxNDVI=imageCollection
+        .filterDate('2017-01-01', '2017-12-31')
+        .filterBounds(qinghai)
+        .map(maskClouds)
+        .map(addNDVI2)
+        .select('NDVI')
+        .max()
+        .clip(qinghai)
+        .reproject('EPSG:32649', null, 30);
+    Map.addLayer(maxNDVI,{max:1,min:-1},'111');
+ Export.image.toDrive({
+   image:maxNDVI.toFloat(),
+    description:'2017',
+    maxPixels: 100000000,
+    scale:30,});
+
+
+print(maxNDVI);

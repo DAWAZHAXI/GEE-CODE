@@ -1,0 +1,66 @@
+//Sentinel2数据制作时间序列NDVI，没有进行云量筛选，有待完善
+
+//定义图表中不同作物类型的颜色
+var COLOR = {
+   DADOU: '7FFF00',
+  GAOLIANG: 'ff0000',
+  YUMI: '0000ff'
+};
+//定义感兴趣区
+var gaoliang = ee.Feature(   
+    ee.Geometry.Rectangle(123.269, 48.0495, 123.272, 48.0511),
+    {label: 'Gaoliang'});
+var yumi = ee.Feature(  
+    ee.Geometry.Rectangle(123.2892, 48.0599, 123.2907, 48.0582),
+    {label: 'Yumi'});
+var dadou = ee.Feature(  
+    ee.Geometry.Rectangle(123.2442, 48.0813, 123.2455, 48.0799),
+    {label: 'Dadou'});
+//将三种作物感兴趣区合并
+var cropRegions = new ee.FeatureCollection([gaoliang,yumi,dadou]);
+//筛选s2数据
+var s2= ee.ImageCollection('COPERNICUS/S2')
+ .filterDate('2018-01-01', '2019-01-01')
+ .filterBounds(cropRegions);
+//计算每副影像的NDVI并制作数据集
+var ndvi = s2.map(function(image) {
+  return image.select().addBands(image.normalizedDifference(['B8', 'B4']).select([0], ['NDVI']));
+});
+print(ndvi)
+//渲染NDVI显示颜色
+var vis = {min: -0.2, max: 1, palette: [
+  'FFFFFF', 'CE7E45', 'FCD163', '66A000', '207401',
+  '056201', '004C00', '023B01', '012E01', '011301'
+]};
+Map.addLayer(ndvi, vis, 'NDVI');
+
+Map.addLayer(cropRegions, {color: COLOR.GAOLIANG},'ROI');
+// Map.addLayer(gaoliang, {color: COLOR.GAOLIANG});
+// Map.addLayer(yumi, {color: COLOR.YUMI});
+// Map.addLayer(dadou, {color: COLOR.DADOU});
+
+//定义图表及样式
+var ndviTimeSeries = ui.Chart.image.seriesByRegion({
+  imageCollection: ndvi,
+  regions: cropRegions,
+  reducer: ee.Reducer.mean(),
+  band: 'NDVI',
+  scale: 10,
+  xProperty: 'system:time_start',
+  seriesProperty: 'label'
+});
+ndviTimeSeries.setChartType('ScatterChart');
+ndviTimeSeries.setOptions({
+  title: 'Sentinel-2数据作物时间序列NDVI变化',
+  vAxis: {
+    title: 'NDVI'
+  },
+  lineWidth: 1,
+  pointSize: 4,
+  series: {
+    0: {color: COLOR.GAOLIANG},
+    1: {color: COLOR.YUMI},
+    2: {color: COLOR.DADOU}
+  }
+});
+print(ndviTimeSeries);

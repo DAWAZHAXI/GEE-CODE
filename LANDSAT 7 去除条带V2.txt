@@ -1,0 +1,91 @@
+//L7  L5  用的是SR
+//作者快多宝，微信kitmyfaceplease，邮箱：kitmyfaceplease2@gmail.com
+//利用landsat5去除landsat7的条带 
+
+var bands = ['red', 'green', 'blue', 'nir', 'swir']
+var percentile = 30
+var imageParams = {min: 0.0, max: 0.3, bands: ['red', 'green', 'blue']}
+
+//选择landsat7的影像
+var image = landsat7
+.select(['B3','B2','B1','B4','B5'], bands)
+.filterBounds(roi)
+.filterDate('2004-06-01', '2004-08-01')
+.reduce(ee.Reducer.percentile([percentile]))
+.rename(bands)
+image = image.multiply(0.0001)
+Map.addLayer(image, imageParams, "landsat7");
+// 移除landsat7边缘的瑕疵
+image = image.updateMask(image.select(0).mask().focal_min(90, 'circle', 'meters'))
+
+
+//使用landsat5填补条带
+var fill = landsat5
+.select(['B3','B2','B1','B4','B5'], bands)
+.filterBounds(roi)
+.filterDate('2004-06-01', '2010-08-01')
+.reduce(ee.Reducer.percentile([percentile]))
+.rename(bands)
+fill = fill.multiply(0.0001)
+Map.addLayer(fill, imageParams, "landsat5");
+
+
+/* USGS提供的Landsat填补方法，可以自己下载下来看看
+    USGSLandsat填补方法链接：
+    https://landsat.usgs.gov/sites/default/files/documents/L7SLCGapFilledMethod.pdf */
+//该函数进行landsat7条带的填补
+var GapFill = function(src, fill, kernelSize) {
+    
+  //填补参数
+  var MIN_SCALE = 1;
+  var MAX_SCALE = 3;
+  var MIN_NEIGHBORS = 144;
+  
+  var kernel = ee.Kernel.square(kernelSize * 30, "meters", false)
+  
+  //找到两张影像的相同的像素
+  var common = src.mask().and(fill.mask())
+  var fc = fill.updateMask(common)
+  var sc = src.updateMask(common)
+
+  // 用回归法找出主要的比例因子。交错波段进行回归。这假设这些带具有相同的名称  // 
+  var regress = fc.addBands(sc)
+  regress = regress.select(regress.bandNames().sort())
+  var fit = regress.reduceNeighborhood(ee.Reducer.linearFit().forEach(src.bandNames()),  kernel, null, false)
+  var offset = fit.select(".*_offset")
+  var scale = fit.select(".*_scale")
+
+  // 查找二级比例因子
+  var reducer = ee.Reducer.mean().combine(ee.Reducer.stdDev(), null, true)
+  var src_stats = src.reduceNeighborhood(reducer, kernel, null, false)
+  var fill_stats = fill.reduceNeighborhood(reducer, kernel, null, false)
+  var scale2 = src_stats.select(".*stdDev").divide(fill_stats.select(".*stdDev"))
+  var offset2 = src_stats.select(".*mean").subtract(fill_stats.select(".*mean").multiply(scale2))
+  var invalid = scale.lt(MIN_SCALE).or(scale.gt(MAX_SCALE))
+  scale = scale.where(invalid, scale2)
+  offset = offset.where(invalid, offset2)
+
+  // 当所有其他方法都失败时的处理方法
+  var invalid2 = scale.lt(MIN_SCALE).or(scale.gt(MAX_SCALE))
+  scale = scale.where(invalid2, 1)
+  offset = offset.where(invalid2, src_stats.select(".*mean").subtract(fill_stats.select(".*mean")))
+  var count = common.reduceNeighborhood(ee.Reducer.count(), kernel, null, true, "boxcar")
+  var scaled = fill.multiply(scale).add(offset)
+      .updateMask(count.gte(MIN_NEIGHBORS))
+
+  return src.unmask(scaled, true)
+}
+
+
+var result = GapFill(image, fill, 10);
+
+//加载填补好的landsat7影像
+Map.addLayer(result, imageParams, "landsat7 filled");
+//导出已经处理好的landsat7影像
+Export.image.toDrive({
+  image: result,
+  description: 'landsat7_result',
+  folder:'landsat7',
+  scale: 30,
+
+});

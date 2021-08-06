@@ -1,0 +1,79 @@
+Map.addLayer(ee.Image().paint(geometry, 1, 2), null, 'geometry');
+// DIAO api
+var utils = require('projects/GLANCE:ccdcUtilities/api')
+
+// jia zai bie ren de BASE DATA
+var ccdcCol = ee.ImageCollection("projects/CCDC/v2")
+var ccdc = ccdcCol.filterMetadata('system:index', 'starts_with', 'z_')
+                  .filterBounds(geometry)
+                  .mosaic()
+//
+print(ccdc);
+//she zhi  api zhong  de canshu
+var inputDate = '2000-12-30'
+var dateParams = {inputFormat: 3, inputDate: inputDate, outputFormat: 1}
+var formattedDate = utils.Dates.convertDate(dateParams)
+//
+//// xuan ze  bo duan BAND 
+var BANDS = ['BLUE', 'GREEN', 'RED', 'NIR', 'SWIR1', 'SWIR2', 'TEMP'];
+
+// fen ge shijian 
+var SEGS = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"];
+
+// tong  guo CCDC model (API) huo qu image
+var ccdImage = utils.CCDC.buildCcdImage(ccdc, SEGS.length, BANDS);
+//
+// ding yi  xuan hao de Band
+var SELECT_BANDS = ['RED', 'NIR'];
+
+// ding yi yao kai gan de xi shu    yong le neng yong de han shu
+var SELECT_COEFS = ["INTP", "SLP", "COS", "SIN", "COS2", "SIN2", "COS3", "SIN3", "RMSE"];
+
+// huo qu xi shu
+var coefs = utils.CCDC.getMultiCoefs(ccdImage, formattedDate, SELECT_BANDS, SELECT_COEFS, true, SEGS, 'after');
+//
+// de dao fu zhu fan she
+var SUB_BANDS = ['RED', 'NIR', 'SWIR1', 'SWIR2'];
+
+// de dao hecheng image
+var synt = utils.CCDC.getMultiSynthetic(ccdImage, formattedDate, 1, BANDS, SEGS);
+//
+var changeStart = '2000-01-01';
+var changeEnd = '2019-12-31';
+var startParams = {inputFormat: 3, inputDate: changeStart, outputFormat: 1};
+var endParams = {inputFormat: 3, inputDate: changeEnd, outputFormat: 1};
+var formattedStart = utils.Dates.convertDate(startParams);
+var formattedEnd = utils.Dates.convertDate(endParams);
+
+var filteredChanges = utils.CCDC.filterMag(ccdImage, formattedStart, formattedEnd, 'NIR', SEGS);
+//
+print(filteredChanges);
+//
+var img =filteredChanges.clip(geometry).select('tBreak')
+            .reproject('EPSG:4326', null, 30);
+//
+var Vis = {
+  min: 1999,
+  max: 2020,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};
+Map.addLayer(img, Vis, 'img');
+//
+Export.image.toDrive({
+  image: img,
+  description: "tBreak",
+  fileNamePrefix: "",
+  scale: 30,
+  region: geometry,
+  maxPixels:1e13,
+  
+});
+print(img);
+
+
+
+

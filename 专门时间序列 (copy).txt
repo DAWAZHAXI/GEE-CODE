@@ -1,0 +1,18 @@
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+//add the datasets
+
+//CHART SHOW
+var preList = ee.ImageCollection('ECMWF/ERA5/MONTHLY')
+                .filter(ee.Filter.date('2000-01-01', '2018-12-31'));
+var PRE = preList.select("total_precipitation")
+                .filterBounds(roi);
+//          
+var chart1 = ui.Chart.image.series({
+  imageCollection: PRE,
+  region: roi,
+  reducer: ee.Reducer.mean(),
+  scale: 500
+}).setOptions({title: 'PRE IMAGE SERIES',
+               vAxis: {title: 'PRE_mean value' },
+});
+print(chart1);

@@ -1,0 +1,56 @@
+Map.addLayer(ee.Image().paint(roi, 1,3), null, 'roi');
+var start = '2000-01-01';
+var stop = '2020-01-01';
+//
+  var bands = ['EVI'];
+  var l8 = ee.ImageCollection('LANDSAT/LC08/C01/T1_8DAY_EVI').filterDate(start, stop).select(['EVI'], bands);
+  var l5 = ee.ImageCollection('LANDSAT/LT05/C01/T1_8DAY_EVI').filterDate(start, stop).select(['EVI'], bands);
+ 
+
+  var images = l8.merge(l5);
+var filteredLandsat = images
+    .filterBounds(roi)
+    .filterDate('2000-01-01', '2020-01-01');
+//    
+print("filteredLandsat", filteredLandsat);
+//
+// First define parameters
+var changeParams = {
+    collection: filteredLandsat,
+    breakpointBands: ["EVI"],
+    minObservations: 6,
+    chiSquareProbability: 0.99,
+    minNumOfYearsScaler: 1.33,
+    dateFormat: 1,
+    lambda: 0.002,
+    maxIterations: 25000
+  };
+print(changeParams);
+////
+var results = ee.Algorithms.TemporalSegmentation.Ccdc(changeParams);
+//
+print("results", results);
+//
+var CCDC =results.clip(roi)
+                 .select('tBreak')
+                 .reproject('EPSG:4326', null, 30)
+                 .arraySlice(0, 0, 1)
+                 .arrayFlatten([["CCDC"]]);
+                 
+print(CCDC, 'CCDC');
+//
+var Vis = {
+  min: 1999,
+  max: 2020,
+  palette: ['lightyellow', 'steelblue', 'darkblue'],
+};
+Map.addLayer(CCDC, Vis, 'CCDC');
+//
+Export.image.toDrive({
+  image:CCDC,
+  region:roi,
+  description: "CCDC",
+  scale:30,
+  fileNamePrefix:'dawa', 
+  maxPixels:1e13,
+});

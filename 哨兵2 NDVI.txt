@@ -1,0 +1,33 @@
+var s2_rmcloud = function(image) {
+ var quality = image.select("QA60").unmask();
+ return image.updateMask(quality.lte(5));
+};
+
+var l8 = ee.ImageCollection("COPERNICUS/S2")
+.filterDate('2016-03-01','2016-10-31')
+.filterBounds(roi)
+.map(s2_rmcloud)
+
+print(l8)
+
+var NDVI = function(img) { 
+  var ndvi = img.normalizedDifference(['B8','B4']);
+  return ndvi;};   
+
+var ndvi = l8.map(NDVI).median().clip(roi)
+
+var clip = l8.mosaic().clip(roi)
+Map.addLayer(clip,{bands:['B4','B3','B2'],max:2500},'true color')
+Map.addLayer(clip,{bands:['B8','B4','B2'],max:2500},'false color')
+Map.addLayer(ndvi,{min:-1,max:1},'NDVI');
+Map.centerObject(roi,9)
+
+Export.image.toDrive({
+ image: ndvi,
+ description: 'ndvi_0301_1031',
+ scale: 10,
+ region: roi
+});
+
+
+

@@ -1,0 +1,16 @@
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+//
+var etList = ee.ImageCollection('MODIS/006/MOD16A2')
+                .filter(ee.Filter.date('2000-01-01', '2018-12-31'));
+var ET = etList.select('ET')
+                .filterBounds(roi);
+//          
+var chart1 = ui.Chart.image.series({
+  imageCollection: ET,
+  region: roi,
+  reducer: ee.Reducer.mean(),
+  scale: 500
+}).setOptions({title: 'ET IMAGE SERIES',
+               vAxis: {title: 'ET_mean value' },
+});
+print(chart1);

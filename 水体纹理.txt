@@ -1,0 +1,83 @@
+Map.centerObject(roi,12);
+//WI_2015: 1.7204 + 171*G + 3*R - 70*NIR - 45*SWIR1 - 71*SWIR2
+function WI_2015(image) {
+  var wi_2015 = image.expression(
+    "1.7204 + 171*G + 3*R - 70*NIR - 45*SWIR1 - 71*SWIR2",
+    {
+      "G": image.select("B3"),
+      "R": image.select("B4"),
+      "NIR": image.select("B5"),
+      "SWIR1": image.select("B6"),
+      "SWIR2": image.select("B7")
+    }
+  );
+  return image.addBands(wi_2015.rename("WI_2015"));
+}
+// var roi = /* color: #d63000 */ee.Geometry.Polygon(
+//         [[[117.19846835579438, 31.338582945998613],
+//           [117.96476474251313, 31.352657172321162],
+//           [117.93455234016938, 31.822923403887454],
+//           [117.20396151985688, 31.792580050380295]]]);
+Map.centerObject(roi, 9);
+Map.addLayer(roi, {color: "red"}, "roi",false);
+var l8Col = ee.ImageCollection("LANDSAT/LC08/C01/T1_TOA")
+              .filterBounds(roi)
+              .filterDate("2017-1-1", "2019-1-1")
+              //影像去云
+              .map(ee.Algorithms.Landsat.simpleCloudScore)
+              .map(function(image) {
+                return image.updateMask(image.select("cloud").lte(10));
+              })
+              //水体指数
+              .map(WI_2015);
+              
+print(l8Col)
+//融合裁剪
+
+var l8Image = l8Col.median().clip(roi);
+Map.addLayer(l8Image, {min:0, max:0.3, bands:["B4", "B3", "B2"]}, "l8Image", false);
+//print(l8Image)
+//直方图展示结果
+// print(ui.Chart.image.histogram({
+//   image: l8Image.select("WI_2015"),
+//   region: roi,
+//   scale:500
+// }));
+
+//人工确认阈值，展示结果
+var water = l8Image.select("WI_2015")
+         .updateMask(l8Image.select("WI_2015").gte(14))
+Map.addLayer(water, {palette: "ff0000"},  "WI_2015water",false);
+
+
+// 计算纹理 
+var int = l8Image.select('B3').multiply(10000).toInt16();
+var texture = int.glcmTexture();
+Map.addLayer(texture.select('B3_var').divide(10000), {},  "texture");
+print(texture)
+
+//直方图 
+// print(ui.Chart.image.histogram({
+//   image: texture.select('B3_var'),
+//   region: roi,
+//   scale:500
+// }));
+
+//export data
+Export.image.toDrive({
+  image: ee.Image(texture),
+  description:'texturetest',
+  scale: 30,
+  region: roi,
+  folder:'texturetext',
+  maxPixels:1e13
+});
+
+// Export.image.toDrive({
+//   image: ee.Image(water),
+//   description:'wi-2015watertest',
+//   scale: 30,
+//   region: roi,
+//   folder:'texturetext',
+//   maxPixels:1e13
+// }); 

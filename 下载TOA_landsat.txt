@@ -1,0 +1,33 @@
+var roi=ee.FeatureCollection('ft:1CGhisl4FVP5iEg00L3NP3ho4LFSdsjwLFdANTpBm');
+var mod = ee.ImageCollection('LANDSAT/LT05/C01/T1_TOA')
+            .filterDate('2000-01-01', '2000-01-30')
+            .filterBounds(roi)
+            .map(ee.Algorithms.Landsat.simpleCloudScore)
+            .map(function(image) {
+             return image.updateMask(image.select("cloud").lte(20));
+          
+            });
+//
+var visParams = {
+  bands: ['B4', 'B3', 'B2'],
+  min: 0,
+  max: 0.3,
+  gamma: 1.4,
+  
+};
+//
+var img =mod.mosaic().clip(roi)
+            .reproject('EPSG:32649', null, 30);
+
+Map.addLayer(img, visParams,'mod');
+//.filterDate('2002-04-20', '2002-12-20')
+
+ Export.image.toDrive({
+   image:img,
+    description:'2016',
+    region: roi,
+    scale:30,
+    maxPixels:1e13,
+ });
+ print(img);
+

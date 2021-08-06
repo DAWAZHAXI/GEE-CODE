@@ -1,0 +1,41 @@
+var DWQ=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+//           
+var a=2000;
+var b=2000;
+var n=19;
+var evi=dataset
+        .filterDate(a+'-01-01', b+'-12-31')
+        //.filterBounds(shenzhen)
+        .select('EVI')
+        .mean()
+        .clip(DWQ)
+        .reproject('EPSG:32649', null, 500);
+//
+ Export.image.toDrive({
+   image:evi.toFloat(),
+    description:'2000',
+    scale:500,});
+Map.addLayer(evi,{},'111');
+//
+
+ for (var i=0; i<n; i++)
+{
+a=a+1;
+b=b+1;
+var or_l5=dataset
+        .filterDate(a+'-01-01', b+'-12-31')
+        .filterBounds(DWQ)
+        .select('EVI')
+        .mean()
+        .clip(DWQ)
+        .reproject('EPSG:32649', null, 500);
+Map.addLayer(or_l5,{},'111');   
+//
+Export.image.toDrive({
+   image:or_l5.toFloat(),
+    description:'5',
+    scale:500,
+   });
+var evi= evi.addBands(or_l5);
+}
+print(evi);

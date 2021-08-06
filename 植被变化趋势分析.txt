@@ -1,0 +1,25 @@
+var table = ee.FeatureCollection("users/boyxiaozheng/feature/beijing");
+//合成20年的年最大NDVI
+var year_list=ee.List.sequence(2000,2019);
+year_list=year_list.map(function(num){
+  var time=ee.Date.fromYMD(num, 1, 1)
+  var year_image=ee.ImageCollection('MODIS/006/MOD13A1')
+                  .filterDate(time,ee.Date(time).advance(1,'year'))
+                  .max();
+  var year_ndvi=year_image.select('NDVI');
+  return  year_ndvi.addBands(ee.Image.constant(num).toFloat());                 
+}
+  )
+var img_collection=ee.ImageCollection.fromImages(year_list);
+//对影像进行趋势分析
+var linearFit = img_collection.select(['constant', 'NDVI'])
+  .reduce(ee.Reducer.linearFit());
+  print(linearFit);
+//显示结果
+var trendVis = {
+  min: -100,
+  max: 100,
+  palette: ['001137', '0aab1e', 'e7eb05', 'ff4a2d', 'e90000'],
+};
+Map.centerObject(table);
+Map.addLayer(linearFit.select('scale').clip(table),trendVis);

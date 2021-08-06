@@ -1,0 +1,26 @@
+// Define a DataTable using a JavaScript literal.
+var dataTable = {
+  cols: [{id: 'name', label: 'Airport Code', type: 'string'},
+         {id: 'year', label: 'Elevation (m)', type: 'number'}],
+  rows: [{c: [{v: 'SFO'}, {v: 4}]},
+         {c: [{v: 'JFK'}, {v: 4}]},
+         {c: [{v: 'DEN'}, {v: 1655}]},
+         {c: [{v: 'LHR'}, {v: 25}]},
+         {c: [{v: 'ZRH'}, {v: 432}]}]
+};
+    // Define a dictionary of customization options.
+var options = {
+  title: 'Airport elevations',
+  vAxis: {title: 'Airport Code'},
+  legend: {position: 'none'},
+  hAxis: {
+    title: 'Elevation (m)',
+    logScale: true
+  }
+};
+    // Make a BarChart from the table and the options.
+var chart = new ui.Chart(dataTable, 'BarChart', options);
+
+// Print the chart to display it in the console.
+print(chart);
+    

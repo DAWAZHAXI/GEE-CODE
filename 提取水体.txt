@@ -1,0 +1,55 @@
+// 去云
+var maskL8 = function(image) {
+  var qa = image.select('BQA');
+  var mask = qa.bitwiseAnd(1 << 4)
+            .or(qa.bitwiseAnd(1 << 8));
+  return image.updateMask(mask.not());
+};
+
+// 增加水体指数
+var addVariables = function(image){
+  var awei= image.expression(
+              '4*(green-SWIR1)-(0.25*NIR+2.75*SWIR2)',{
+              green:image.select('B3'),
+              NIR:image.select('B5'),
+              SWIR1:image.select('B6'),
+              SWIR2:image.select('B7'),
+            }).float().rename('AWEI')
+  var ndwi = image.normalizedDifference(['B3','B5']).rename('NDWI')
+  var mndvi = image.normalizedDifference(['B3','B6']).rename('MNDWI')
+  var lswi = image.normalizedDifference(['B5','B6']).rename('LSWI')
+  return image.addBands([awei,ndwi,mndvi,lswi]);
+}
+
+// 研究区域
+
+Map.addLayer(roi,{"color":'red',},"roi")
+Map.centerObject(roi, 8)    
+    
+var landimg= ee.ImageCollection('LANDSAT/LC08/C01/T1_RT_TOA')
+                    .filterBounds(roi)
+                    .filterDate('2019-01-31','2019-12-31')
+                    .map(maskL8)
+                    .map(addVariables)
+                    .mosaic()
+                    .clip(roi)
+// 真彩色          
+Map.addLayer(landimg, {bands: ['B5', 'B4','B3'],min: 0, max: 1,gamma:3,opacity:1},'landimg');
+
+//显示水体指数
+var visParams = {min: -0.8, max: 0.8, palette: [ 'green','white','blue']};
+Map.addLayer(landimg.select('AWEI'),visParams,'AWEI');
+Map.addLayer(landimg.select('NDWI'),visParams,'NDWI');
+Map.addLayer(landimg.select('MNDWI'),visParams,'MNDWI');
+Map.addLayer(landimg.select('LSWI'),visParams,'LSWI');
+
+// 通过阈值提取水体
+var ALOSDEM = ee.Image("JAXA/ALOS/AW3D30_V1_1");
+var slope = ee.Terrain.slope(ALOSDEM.clip(roi));
+var AWEI = landimg.select('AWEI');
+var water=AWEI.gt(-0.005).updateMask(slope.lt(10)); //snow and shadow mask by DEM data 
+var water=water.updateMask(water.gt(0.5));
+Map.addLayer(water,{min: 0, max: 1,palette: ['white','blue']},'water');
+
+//其它监督学习方法提取然后进行检验--
+// 哎呀，接下来我也不会了，要不有读者给我讲讲

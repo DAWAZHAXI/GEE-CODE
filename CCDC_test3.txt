@@ -1,0 +1,37 @@
+var start = '2013-01-01';
+var end = '2019-12-31';
+////
+var filteredLandsat = ee.ImageCollection('LANDSAT/LC08/C01/T1_8DAY_EVI')
+    .filterBounds(roi)
+    .filterDate('2013-01-01', '2019-12-31');
+print(filteredLandsat.size());
+//
+// First define parameters
+var changeParams = {
+    collection: filteredLandsat,
+    breakpointBands: ["EVI"],
+    minObservations: 6,
+    chiSquareProbability: 0.99,
+    minNumOfYearsScaler: 1.33,
+    dateFormat: 1,
+    lambda: 0.002,
+    maxIterations: 25000
+  };
+print(changeParams);
+////
+var results = ee.Algorithms.TemporalSegmentation.Ccdc(changeParams);
+print(results);
+//
+var CCDC = results.select(['tBreak'])
+                  .clip(roi)
+                  .reproject('EPSG:4326', null, 30);
+print(CCDC);                  
+//
+var VizParms = {
+  min: start,
+  max: end,
+  palette: ['#9400D3', '#4B0082', '#0000FF', '#00FF00', '#FFFF00', '#FF7F00', '#FF0000']
+};
+//
+Map.addLayer(CCDC, VizParms, "CCDC");
+//

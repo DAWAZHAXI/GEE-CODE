@@ -1,0 +1,37 @@
+// Plot a time series of a band's value in regions of the American West.
+// Get brightness temperature data for 1 year.
+var landsat8Toa = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA');
+var temps2013 = landsat8Toa.filterBounds(roi)
+    .filterDate('2016-01-01', '2017-01-01')
+    .select('B10');
+
+// Convert temperature to Celsius.
+temps2013 = temps2013.map(function(image) {
+  return image.addBands(image.subtract(273.15).select([0], ['Temp']));
+});
+
+var tempTimeSeries = ui.Chart.image.seriesByRegion({
+  imageCollection: temps2013,
+  regions: roi,
+  reducer: ee.Reducer.mean(),
+  band: 'Temp',
+  scale: 200,
+  xProperty: 'system:time_start',
+  seriesProperty: 'label'
+});
+tempTimeSeries.setChartType('ScatterChart');
+tempTimeSeries.setOptions({
+  title: 'Temperature over time in regions of the American West',
+  vAxis: {
+    title: 'Temperature (Celsius)'
+  },
+  lineWidth: 1,
+  pointSize: 4,
+  series: {
+    
+  }
+});
+
+print(tempTimeSeries);
+
+

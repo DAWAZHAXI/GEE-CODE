@@ -1,0 +1,30 @@
+var SZ=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+var dataset = ee.Image('USGS/SRTMGL1_003');
+var dem = dataset.select('elevation')
+            
+             .clip(SZ)
+             .reproject('EPSG:32649', null, 1000);
+var demVis = {
+  min: -200.00,
+  max: 2000.00,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};   
+Map.addLayer(dem, demVis, 'elevation');
+//
+var slope = ee.Terrain.slope(dem);
+Map.addLayer(slope, {min: 0, max: 60}, 'slope');
+//
+Export.image.toDrive({
+  image: dem,
+  description: "elevation",
+  fileNamePrefix: "dwq_DEM",
+  scale: 1000,
+  region: SZ,
+  maxPixels:1e13,
+  
+});
+ print(dem);

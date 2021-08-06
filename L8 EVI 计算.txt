@@ -1,0 +1,44 @@
+
+var maskClouds = function(image) {
+  var score = ee.Algorithms.Landsat.simpleCloudScore(image).select('cloud');
+  var mask = score.lt(100);
+  return image.updateMask(mask);
+};
+
+
+//
+var EVI = function(img) {
+    var nir = img.select("B8");
+    var red = img.select("B4");
+    var blue = img.select("B2");
+    var evi = img.expression(
+      "2.5 * (B8 - B4) / (B8 + 6*B4 - 7.5*B2 + 1)",
+      {
+        "B8": nir,
+        "B4": red,
+        "B2": blue
+      }
+    );
+    return img.addBands(evi.rename("EVI"));
+  }
+
+
+//.filterDate('2002-04-20', '2002-12-20')
+var maxEVI=imageCollection
+        .filterDate('2015-01-01', '2015-12-31')
+        .filterBounds(xining)
+        .map(maskClouds)
+        .map(EVI)
+        .select('EVI')
+        .max()
+        .clip(xining)
+        .reproject('EPSG:32647', null, 30);
+    Map.addLayer(maxEVI,{max:1,min:-1},'111');
+ Export.image.toDrive({
+   image:maxEVI.toFloat(),
+    description:'xining_EVI15',
+    maxPixels: 1e13,
+    scale:30,});
+
+
+print(maxEVI);

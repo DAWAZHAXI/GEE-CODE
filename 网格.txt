@@ -1,0 +1,27 @@
+var a = new Array();
+
+//
+var x0=30057281;
+var y0=4852579;
+//
+var cell=100000;
+var width=30;
+var height=30;
+    for(var i=0;i<width;i++){
+      for(var j=0;j<height;j++)
+    {
+        a.push([[x0+i*cell,y0+j*cell],
+        [x0+i*cell,y0+(j+1)*cell],
+        [x0+(i+1)*cell,y0+(j+1)*cell],
+        [x0+(i+1)*cell,y0+j*cell],
+        [x0+i*cell, y0+j*cell]]);
+      
+      
+    }
+    }
+print(a);
+
+var dawa= ee.Geometry.MultiPolygon(a, 'epsg:3857');
+//
+
+Map.addLayer(ee.Image().paint(dawa, 1, 2), null, 'dawa');

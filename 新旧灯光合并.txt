@@ -1,0 +1,55 @@
+
+//
+var l71 = ee.ImageCollection('NOAA/DMSP-OLS/NIGHTTIME_LIGHTS')
+            .filterDate('2000-01-01', '2014-01-01')
+            .filterBounds(roi)
+            .select(['avg_vis'])
+            
+            ;
+            
+var l711 = function(image) {
+  return image
+    .select(['avg_vis'])
+    .rename('avg')
+    .float()};
+      
+var l72=ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG")
+            .filterDate('2014-01-01', '2019-01-01')
+            .filterBounds(roi)
+            .select(['avg_rad'])
+            ;
+            
+            
+var l722 = function(image) {
+  return image
+    .select(['avg_rad'])
+    .rename('avg')
+    .float()};            
+            //
+var dawa = l71.merge(l72);
+
+//
+var NL=dawa
+        .filterDate('2000-01-01', '2019-01-01')
+        .filterBounds(roi)
+        .map(l711)
+        .map(l722)
+        .select('avg')
+        .mean()
+        .clip(roi)
+        .reproject('EPSG:4326', null, 500)
+        .toFloat();
+ 
+    Map.addLayer(NL,{},'NL');
+ //
+print(NL);
+//
+var chart1 = ui.Chart.image.series({
+  imageCollection: NL,
+  region: roi,
+  reducer: ee.Reducer.mean(),
+  scale: 5000
+}).setOptions({title: 'NIGHTTIME LIGHT IMAGE SERIES',
+               vAxis: {title: 'NL_mean value' },
+});
+print(chart1);

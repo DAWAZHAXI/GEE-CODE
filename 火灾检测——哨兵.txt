@@ -1,0 +1,83 @@
+var s2_rmcloud = function(image) {
+var quality = image.select("QA60").unmask();
+return image.updateMask(quality.eq(0));
+};
+//首先采用哨兵数据的‘Red Edge 1’和‘SWIR 2’波段检测火点'FDI'（因为哨兵卫星没有热红外波段），以此反映明火面积
+//然后采用B8和B4波段计算NDVI ，目的是为了评估火灾后，植被受损面积，以此反映过火面积。
+var addVariables = function(image){
+  var FDI = image.expression("SWIR2/Redge",{
+    Redge: image.select("B5"),
+    SWIR2: image.select("B12")
+  }).rename('FDI');
+  var ndvi = image.normalizedDifference(['B8','B4']).rename('NDVI');
+  return image.addBands([FDI,ndvi]);
+};
+//总数据集合就是哨兵数据，设定总的研究时间段
+var S2 = ee.ImageCollection('COPERNICUS/S2')
+            .filterBounds(roi)
+            .filterDate("2019-12-01", "2020-01-30")
+            .sort("system:time_start",false)
+
+print(S2,"s2")
+print("时间",S2.first().date().advance(8,"hour")) 
+//火灾前影像收集
+var S2_01 = ee.ImageCollection('COPERNICUS/S2')
+        .filterBounds(roi)
+        .filterDate("2020-01-01", "2020-01-15")
+        .map(addVariables)
+         .map(s2_rmcloud)
+        .mosaic()
+        .clip(roi)
+//火灾后影像收集
+var S2_02 = ee.ImageCollection('COPERNICUS/S2')
+        .filterBounds(roi)
+        .filterDate("2020-01-16", "2020-01-31")
+        .map(addVariables)
+        .map(s2_rmcloud)
+        .mosaic()
+        .clip(roi)
+
+// 可视化影像    
+var visParams01 = {"bands": ["B12", "B8", "B4"],"min": 500,"max": 4000, gamma: 1.5, scale: 10};
+Map.addLayer(S2_01,visParams01, "S2_01_true");
+Map.addLayer(S2_02,visParams01, "S2_02_ture");
+
+// 分别选择火灾前后影像的‘FDI’,检测火点,并可视化
+var FDI01 = S2_01.select("FDI");
+var FDI02 = S2_02.select("FDI");
+var fire_FDI = FDI02.subtract(FDI01);
+var fire_FDI = FDI02.gte(3).and(fire_FDI.gte(2));
+var fire_FDI = fire_FDI.updateMask(fire_FDI.eq(1)).rename('fire_FDI');
+Map.addLayer(fire_FDI, {palette: 'red'}, 'FDI');
+
+// 检测明火面积
+var FDI_area = fire_FDI.multiply(ee.Image.pixelArea());
+var FDI_area = FDI_area.reduceRegion({
+                  reducer: ee.Reducer.sum(),
+                  geometry: roi, 
+                  scale: 10, 
+                  maxPixels: 1e13
+                });
+print("明火检测面积:",FDI_area);
+
+// 利用NDVI来估算和统计燃烧的面积，并可视化，直白说就是火灾前的影像减去火灾后的影像的NDVI
+var ndvi01 = S2_01.select("NDVI");
+var ndvi02 = S2_02.select("NDVI");
+var fire_area = ndvi01.subtract(ndvi02);
+var fire_area = fire_area.gte(0.1)
+                .and(ndvi01.gte(0.15))
+                .and(ndvi02.lte(0.15));
+
+var fire_area = fire_area.updateMask(fire_area.eq(1)).rename('fire_area');
+Map.addLayer(fire_area,{min: 0, max:1, palette: ['green','red']}, "fire_area");
+
+
+var fire_area = fire_area.multiply(ee.Image.pixelArea());
+var fire_area = fire_area.reduceRegion({
+                  reducer: ee.Reducer.sum(),
+                  geometry: roi, 
+                  scale: 10, 
+                  maxPixels: 1e13
+                });
+
+print("过火检测面积:",fire_area);

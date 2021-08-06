@@ -1,0 +1,25 @@
+Map.centerObject(roi, 6);
+Map.addLayer(roi, {}, "roi");
+
+//筛选
+var pop = mod.select(["population"])
+             ;
+            
+var pop = pop.select("population");
+
+var pop =pop.mosaic().clip(roi).reproject('EPSG:32647', null, 30).toInt();
+Map.addLayer(pop, {}, "population");
+
+// To Drive
+//导出文件到Drive，名称为LST_1, 分辨率500    区域为roi
+
+Export.image.toDrive({
+  image: pop,
+  description: "population",
+  fileNamePrefix: "qingmai_LST18",
+  scale: 30,
+  region: roi,
+  maxPixels: 1e13,
+  
+});
+ print(pop);  

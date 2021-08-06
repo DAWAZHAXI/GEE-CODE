@@ -1,0 +1,34 @@
+var qinghai=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+Map.addLayer(qinghai, {}, "roi");
+var dataset = ee.ImageCollection('LANDSAT/LC08/C01/T1_8DAY_EVI')
+                  .filterDate('2015-01-01', '2015-12-31');
+//筛选
+var evi = dataset.filterDate("2015-01-01", "2015-12-31")
+             .select(["EVI"])
+             .mean()
+             .clip(qinghai)
+             .reproject('EPSG:32649', null, 30);
+ 
+var eviVis = {
+  min: 0.0,
+  max: 1.0,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};
+
+Map.addLayer(evi, eviVis, 'EVI');
+
+//
+Export.image.toDrive({
+  image: evi,
+  description: "EVIdwq",
+  fileNamePrefix: "dwq_EVI15",
+  scale: 30,
+  region: qinghai,
+  maxPixels: 1e13,
+  
+});
+print(evi);

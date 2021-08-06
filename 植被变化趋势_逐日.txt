@@ -1,0 +1,103 @@
+//L578 都用SR数据
+// Remove the cloud from Landsat457
+var cloudMask457=function(image){
+  var qa=image.select('pixel_qa');
+  var cloud=qa.bitwiseAnd(1<<5)
+  .and (qa.bitwiseAnd(1<<7))
+  .or(qa.bitwiseAnd(1<<3));
+  var mask2=image.mask().reduce(ee.Reducer.min());
+  return image.updateMask(cloud.not()).updateMask(mask2).divide(10000)
+              .copyProperties(image, ["system:time_start"]);
+};
+
+// Remove the cloud from Landsat8
+var cloudMask8 = function(image) {
+  var qa8 = image.select('pixel_qa');
+  var cloud8 = qa8.bitwiseAnd(1 << 5).eq(0)
+  .and(qa8.bitwiseAnd(1<<3).eq(0));
+  var mask3=image.mask().reduce(ee.Reducer.min());
+  return image.updateMask(cloud8).updateMask(mask3).divide(10000)
+              .copyProperties(image, ["system:time_start"]);
+};
+
+// Calculated NDVI from Landsat457
+var addNDVI457 = function(image) {
+  return image
+    .addBands(image.normalizedDifference(['B4', 'B3']).rename('NDVI'))
+    .float()
+    .clip(SZ);
+};
+
+//Calculate NDVI from Landsat8
+var addNDVI8=function(image) {
+  return image
+  .addBands(image.normalizedDifference(['B5','B4']).rename('NDVI'))
+  .float()
+  .clip(SZ);
+};
+
+//var l8=ee.ImageCollection('LANDSAT/LC08/C01/T1_8DAY_EVI').filterDate('2013-01-01', '2020-01-01');
+//var l7=ee.ImageCollection('LANDSAT/LE07/C01/T1_8DAY_EVI').filterDate('2012-01-01', '2013-05-01');
+//var l5=ee.ImageCollection('LANDSAT/LT05/C01/T1_8DAY_EVI').filterDate('2000-01-01', '2012-01-01');
+//var dataset = l5.merge(l7).merge(l8);
+
+var l5=LT5
+.filterDate('2000-01-01', '2012-01-01')
+.map(cloudMask457)
+.map(addNDVI457);
+
+var l7=LE7
+.filterDate('2012-01-01', '2013-05-01')
+.map(cloudMask457)
+.map(addNDVI457);
+
+var l8=LC8
+.filterDate('2013-01-01','2020-01-01')
+.map(cloudMask8)
+.map(addNDVI8);
+
+var dataset=l5.merge(l7).merge(l8);
+var colorized = dataset.select('NDVI');
+
+var colorizedVis = {
+  min: 0.0,
+  max: 1.0,
+  palette: [
+    'FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A901',
+    '66A000', '529400', '3E8601', '207401', '056201', '004C00', '023B01',
+    '012E01', '011D01', '011301'
+  ],
+};
+  Map.centerObject(SZ,10.5);
+Map.addLayer(colorized, colorizedVis, 'Colorized');
+
+
+// Star to linear regression
+
+function createTimeBand(img) {
+ //var day = img.date().difference(ee.Date('2017-01-01'), 'day');
+ //return ee.Image(day).float().addBands(img);
+ 
+ return img.addBands(img.metadata('system:time_start')
+           .divide(1000*60*60*24*365));
+}
+
+var collection = dataset
+   .select('NDVI')
+   .filterDate('2000-01-01','2020-01-01')
+   .map(createTimeBand);
+   
+var fit = collection
+   .select(['system:time_start','NDVI'])
+   .reduce(ee.Reducer.linearFit());
+  
+/*Map.addLayer(ee.Image(collection.select('NDVI').first().clip(geometry)),
+         {min: -1, max: 1}, 'NDVI');*/
+
+//
+var Vis = {
+  min: -0.05,
+  max: 0.05,
+  palette: ['e90000','ff4a2d','e7eb05','0aab1e','001137'],
+};
+Map.addLayer(fit.select('scale').clip(SZ),Vis, 'NDVItrend');

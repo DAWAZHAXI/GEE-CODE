@@ -1,0 +1,33 @@
+var maskS2clouds = function(image) {
+ var quality = image.select("QA60").unmask();
+ return image.updateMask(quality.lte(5));
+};
+// Map the function over one year of data and take the median.
+// Load Sentinel-2 TOA reflectance data.
+var dataset = ee.ImageCollection('COPERNICUS/S2')
+                  .filterDate('2017-01-01', '2017-12-10')
+                  // Pre-filter to get less cloudy granules.
+                  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 8))
+                  .map(maskS2clouds);
+       
+
+//
+  var NDVI = function(img) { 
+  var ndvi = img.normalizedDifference(['B8','B4']);
+  return ndvi;};  
+
+  var ndvi = dataset.map(NDVI).median().clip(roi)
+  //
+  var clip = dataset.mosaic().clip(roi)
+Map.addLayer(clip,{bands:['B4','B3','B2'],max:2500},'true color')
+Map.addLayer(clip,{bands:['B8','B4','B2'],max:2500},'false color')
+Map.addLayer(ndvi,{min:-1,max:1},'NDVI');
+
+Export.image.toDrive({
+ image: ndvi,
+ description: 'ndvi_0301_1031',
+ scale: 10,
+ region: roi
+});
+
+ print(clip);

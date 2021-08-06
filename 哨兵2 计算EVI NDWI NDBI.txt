@@ -1,0 +1,40 @@
+
+var s2_rmcloud = function(image) {
+var quality = image.select("QA60").unmask();
+return image.updateMask(quality.eq(0));
+};
+var image = ee.ImageCollection("COPERNICUS/S2")
+    .filterBounds(roi)
+    .filterDate('2019-07-01','2019-10-01')
+    .map(s2_rmcloud)
+    .map(function(image){
+      // 方法 1 利用 expression 表达式
+      var evi= image.expression(
+              '2.5*(NIR-RED)/(NIR+6*RED-7.5*BLUE+10000)',{
+              NIR:image.select('B8'),
+              RED:image.select('B4'),
+              BLUE:image.select('B2'),
+            }).float().rename('EVI');   
+      // 方法 2 利用 normalizedDifference 归一化函数        
+      var ndwi = image.normalizedDifference(['B3','B8']).float().rename('NDWI');      
+      // 方法 3 自己手动加减乘除
+      var ndbi = image.select('B11').subtract(image.select('B8')).divide(image.select('B11').add(image.select('B8')))
+                  .float().rename('NDBI');         
+        return ee.Image.cat([evi,ndwi,ndbi]).clip(roi);
+      })
+      .mean();
+var visParams = {min: -1, max: 1, palette: ['blue', 'white','green']};
+Map.addLayer(image.select("EVI"), visParams, "EVI");//越绿代表植被越多
+
+var visParams = {min: -1, max: 1, palette: ['green', 'white','blue']};
+Map.addLayer(image.select("NDWI"), visParams, "NDWI");//越蓝代表水越多
+
+var visParams = {min: -1, max: 1, palette: ['blue', 'white','red']};
+Map.addLayer(image.select("NDBI"), visParams, "NDBI");//越红代表建筑越多
+
+
+Export.image.toDrive({
+   image:image.toFloat(),
+    description:'EVI',
+    maxPixels: 1e13,
+    scale:10,});

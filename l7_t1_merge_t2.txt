@@ -1,0 +1,41 @@
+var qinghai=ee.FeatureCollection('ft:1cn-YqAUTafwB24E_TrYuU5c2cg7uCO6ql19-76A9');
+// This example demonstrates the use of the Landsat 8 QA band to mask clouds.
+
+// Function to mask clouds using the quality band of Landsat 8.
+var maskL8 = function(image) {
+  var qa = image.select('BQA');
+  /// Check that the cloud bit is off.
+  // See https://landsat.usgs.gov/collectionqualityband
+  var mask = qa.bitwiseAnd(1 << 4).eq(0);
+  return image.updateMask(mask);
+}
+//
+var l71=ee.ImageCollection(l71.merge(l72));
+
+//计算landsat8的NDVI
+var addNDVI2 = function(image) {
+  return image
+    .addBands(image.normalizedDifference(['B5', 'B4'])
+    .rename('NDVI'))
+    .float();
+};
+//.filterDate('2002-04-20', '2002-12-20')
+var maxNDVI=l71
+        .filterDate('2012-03-01', '2012-11-01')
+        .filterBounds(qinghai)
+        .map(maskL8)
+        .map(addNDVI2)
+        .select('NDVI')
+        .max()
+        .clip(qinghai)
+        .reproject('EPSG:32649', null, 30);
+ 
+    Map.addLayer(maxNDVI,{min:-1,max:1,palette:["red","yellow","green"]},'111');
+ Export.image.toDrive({
+   image:maxNDVI.toFloat(),
+    description:'2012NDVI',
+    maxPixels: 1e13,
+    scale:30,});
+
+
+print(maxNDVI);

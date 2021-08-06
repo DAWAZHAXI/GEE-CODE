@@ -1,0 +1,85 @@
+//方法三：GEE将计算公式封装为一个方法可以直接调用
+function NDVI_V1(img) {
+ var ndvi = img.normalizedDifference(["B5","B4"]);
+ return ndvi;
+}
+//方法三：GEE将计算公式封装为一个方法可以直接调用
+function NDVI_V2(img) {
+ var ndvi = img.normalizedDifference(["B5","B4"]);
+ return ndvi;
+}
+//方法三：GEE将计算公式封装为一个方法可以直接调用
+function NDVI_V3(img) {
+ var ndvi = img.normalizedDifference(["B5","B4"]);
+ return ndvi;
+}
+
+//landsat8 and roi 我们这里使用的2017年全部的Landsat8影像，地点是沧州附近 
+var l8_col = ee.ImageCollection("LANDSAT/LC08/C01/T1_RT_TOA");
+var roi = ee.Geometry.Point([102.83442868933298,24.857599968376793]);
+var img = ee.Image(l8_col.filterBounds(roi)
+                       .filterDate("2013-01-01", "2013-12-24")
+                       .first());
+var ndvi1 = NDVI_V1(img);
+var ndvi2 = NDVI_V2(img);
+var ndvi3 = NDVI_V3(img);
+//NDVI显示配置，NDVI值范围是-1到1
+var visParam = {
+ min: -0.2,
+ max: 0.8,
+ palette: 'FFFFFF, CE7E45, DF923D, F1B555, FCD163, 99B718, 74A901, 66A000, 529400,' +
+   '3E8601, 207401, 056201, 004C00, 023B01, 012E01, 011D01, 011301'
+};
+//原始影像真彩色
+Map.addLayer(img, {bands:["B4", "B3", "B2"], max:0.3}, "raw_img");
+Map.addLayer(ndvi1, visParam, "ndvi_1");
+Map.addLayer(ndvi2, visParam, "ndvi_2");
+Map.addLayer(ndvi3, visParam, "ndvi_3");
+Map.centerObject(roi, 9);
+
+//上面只是展示了图像，我们在分析的时候还需要查看我们所筛选的影像NDVI值
+var ndvi_list = l8_col.filterDate("2013-01-01", "2013-12-31")
+   .map(function(image) {
+   //通过云筛选landsat8
+   var cloud = ee.Algorithms.Landsat.simpleCloudScore(image).select("cloud");
+   var mask = cloud.lte(20);
+   var ndvi = image.normalizedDifference(['B5', 'B4']).rename('NDVI');
+   return image.addBands(ndvi).updateMask(mask);
+});
+
+
+//展示每一张影像NDVI值 
+var chart1 = ui.Chart.image.series({
+ //影像集合
+ imageCollection: ndvi_list.select('NDVI'),
+ //关心区域
+ region: roi,
+ //关心区域计算方式，这里采用的是均值。也就是比如roi是一个矩形，
+ //那么在图表中这个点的值就是矩形内所有像素值求平均。
+ reducer: ee.Reducer.mean(),
+ //分辨率
+ scale: 500
+}).setOptions({title: 'NDVI IMAGE SERIES'});
+print(chart1);
+
+
+//展示每一天所关心区域的NDVI值
+var chart2 = ui.Chart.image.doySeries({
+ imageCollection: ndvi_list.select('NDVI'),
+ region:roi,
+ regionReducer: ee.Reducer.mean(),
+ scale:500
+}).setOptions({title: "ROI NDVI EACH DAY SERIES"})
+print(chart2)
+
+// To Drive
+//导出文件到Drive，名称为ndvi_list，分辨率500米，区域是roi区域
+Export.image.toDrive({
+  image: ndvi_list.select(['NDVI']),
+  description: "ndvi_list",
+  fileNamePrefix: "kunming2013",
+  scale: 500,
+  region: roi,
+  maxPixels: 1e13
+});
+

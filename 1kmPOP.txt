@@ -1,0 +1,26 @@
+var roi=ee.FeatureCollection('ft:1e5nc7_0c3j4DQ1dEEcmDIcgd1GUu7L0AkUt4Tdih');
+var pop =ee.Image.load('CIESIN/GPWv4/unwpp-adjusted-population-density/2020');
+var populationDensity = pop.select('population-density')
+                        
+                        .clip(roi)
+                        .reproject('EPSG:32649', null, 1000);
+var populationDensityVis = {
+  min: 200.0,
+  max: 1500.0,
+  palette: ['ffffff', 'ffcdc6', 'ff0000', '950000'],
+};
+
+
+Map.addLayer(populationDensity, populationDensityVis, "Population Density");
+
+//
+Export.image.toDrive({
+  image: populationDensity,
+  description: "Pop Density",
+  fileNamePrefix: "kunming",
+  scale: 1000,
+  region: roi,
+  maxPixels:1e13,
+  
+});
+print(populationDensity);

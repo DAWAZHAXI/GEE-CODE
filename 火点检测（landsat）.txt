@@ -1,0 +1,94 @@
+var maskL8 = function(image) {
+  var qa = image.select('BQA');
+  /// Check that the cloud bit is off.
+  // See https://www.usgs.gov/land-resources/nli/landsat/landsat-collection-1-level-1-quality-assessment-band
+  var mask = qa.bitwiseAnd(1 << 4).eq(0);
+  return image.updateMask(mask);
+}
+//ee.ImageCollection("LANDSAT/LC08/C01/T1_TOA")
+// Import a Landsat 8 image, subset the thermal band, and clip to the
+// area of interest.
+var tem_landsat = l8.filterBounds(aoi)
+                  .filterDate('2020-01-01', '2020-01-31')
+                  .map(maskL8)
+                  .select('B10');
+tem_landsat = tem_landsat.map(function(image) {
+  return image.addBands(image.subtract(273.15).select([0], ['tem']));
+});
+
+
+var tem = tem_landsat.select(['tem']).max().clip(aoi);
+
+// Display the thermal band.
+var TEMVis = {
+  min: 0.0,
+  max: 70.0,
+  palette: ['0000C0', 'FFFF80', 'C00000' ],
+};
+Map.addLayer(tem,TEMVis, 'tem');
+
+// Threshold the thermal band to set hot pixels as value 1, mask all else.
+var hotspots = tem.gt(40)
+  .selfMask()
+  .rename('hotspots');
+
+// Display the thermal hotspots on the Map.
+Map.addLayer(hotspots, {palette: 'FF0000'}, 'Hotspots');
+//
+// Uniquely label the hotspot image objects.
+var objectId = hotspots.connectedComponents({
+  connectedness: ee.Kernel.plus(1),
+  maxSize: 128
+});
+
+// Display the uniquely ID'ed objects to the Map.
+Map.addLayer(objectId.randomVisualizer(), null, 'Objects');
+//
+// Compute the number of pixels in each object defined by the "labels" band.
+var objectSize = objectId.select('labels')
+  .connectedPixelCount({
+    maxSize: 128, eightConnected: false
+  });
+
+// Display object pixel count to the Map.
+Map.addLayer(objectSize, null, 'Object n pixels');
+//
+
+// Get a pixel area image.
+var pixelArea = ee.Image.pixelArea();
+
+// Multiply pixel area by the number of pixels in an object to calculate
+// the object area. The result is an image where each pixel
+// of an object relates the area of the object in m^2.
+var objectArea = objectSize.multiply(pixelArea);
+
+// Display object area to the Map.
+Map.addLayer(objectArea, null, 'Object area m^2');
+//
+// Threshold the `objectArea` image to define a mask that will mask out
+// objects below a given size (1 hectare in this case).
+var areaMask = objectArea.gte(10000);
+
+// Update the mask of the `objectId` layer defined previously using the
+// minimum area mask just defined.
+objectId = objectId.updateMask(areaMask);
+Map.addLayer(objectId, null, 'Large hotspots');
+//
+// Make a suitable image for `reduceConnectedComponents()` by adding a label
+// band to the `kelvin` temperature image.
+var tem2 = tem.addBands(objectId.select('labels'));
+
+// Calculate the mean temperature per object defined by the previously added
+// "labels" band.
+var patchTemp = tem2.reduceConnectedComponents({
+  reducer: ee.Reducer.mean(),
+  labelBand: 'labels'
+});
+
+// Display object mean temperature to the Map.
+Map.addLayer(
+  patchTemp,
+  {min: 303, max: 304, palette: ['yellow', 'red']},
+  'Mean temperature'
+);
+

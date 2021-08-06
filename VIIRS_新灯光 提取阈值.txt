@@ -1,0 +1,37 @@
+Map.centerObject(roi, 8);
+//shaixuan
+var dataset = ee.ImageCollection('NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG')
+                  .filter(ee.Filter.date('2017-05-01', '2017-05-31'));
+                  
+var nighttime = dataset.select('avg_rad');
+var nighttimeVis = {min: 0.0, max: 60.0};
+
+var img =dataset.mosaic().clip(roi).toInt()
+Map.addLayer(img, nighttimeVis, 'Nighttime');
+
+  
+  // Define arbitrary thresholds on the 6-bit nightlights image.
+var zones = img.gt(30).add(img.gt(55)).add(img.gt(62));
+zones = zones.updateMask(zones.neq(0));
+
+// Convert the zones of the thresholded nightlights to vectors.
+var vectors = zones.addBands(img).reduceToVectors({
+  geometry: roi,
+  crs: img.projection(),
+  scale: 500,
+  geometryType: 'polygon',
+  eightConnected: false,
+  labelProperty: 'zone',
+  reducer: ee.Reducer.mean()
+});
+
+// Display the thresholds.
+
+Map.addLayer(zones, {min: 1, max: 3, palette: ['0000FF', '00FF00', 'FF0000']}, 'raster');
+
+// Make a display image for the vectors, add it to the map.
+var display = ee.Image(0).updateMask(0).paint(vectors, '000000', 3);
+Map.addLayer(display, {palette: '000000'}, 'vectors');
+    
+
+
